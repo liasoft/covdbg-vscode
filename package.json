@@ -40,7 +40,7 @@
         "onMcpCollection:covdbg.mcp"
     ],
     "main": "./out/extension.js",
-    "covdbgBundledVersion": "1.4.0",
+    "covdbgBundledVersion": "1.5.0",
     "capabilities": {
         "untrustedWorkspaces": {
             "supported": "limited",
