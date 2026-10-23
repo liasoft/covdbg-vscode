@@ -4,12 +4,23 @@ const http = require("http");
 const https = require("https");
 const path = require("path");
 
-const DEFAULT_PORTABLE_URL = "https://covdbg.com/download/latest/portable.zip";
+// The universal VSIX bundles the x64 covdbg, which also measures 32-bit x86 programs. Only the
+// ARM64 covdbg measures ARM64 programs, so the win32-arm64 VSIX bundles that one.
+const PORTABLE_URLS = {
+    universal: "https://covdbg.com/download/latest/portable.zip",
+    "win32-arm64": "https://covdbg.com/download/latest/portable-arm64.zip",
+};
 const OUTPUT_PATH = path.join(__dirname, "..", "assets", "portable", "covdbg-portable.zip");
 const REDIRECT_LIMIT = 5;
 
 async function main() {
-    const downloadUrl = process.env.COVDBG_PORTABLE_URL || DEFAULT_PORTABLE_URL;
+    const target = process.argv[2] || "universal";
+    if (!Object.hasOwn(PORTABLE_URLS, target)) {
+        throw new Error(
+            `Unknown target ${target}; expected one of ${Object.keys(PORTABLE_URLS).join(", ")}.`,
+        );
+    }
+    const downloadUrl = process.env.COVDBG_PORTABLE_URL || PORTABLE_URLS[target];
 
     // Always downloaded: an archive left over from an earlier build could be any covdbg at all.
     await fsp.mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
@@ -17,7 +28,7 @@ async function main() {
     const tempPath = `${OUTPUT_PATH}.download`;
     await safeUnlink(tempPath);
 
-    console.log(`Downloading portable runtime from ${downloadUrl}`);
+    console.log(`Downloading the ${target} portable runtime from ${downloadUrl}`);
     try {
         await downloadToFile(downloadUrl, tempPath, REDIRECT_LIMIT);
         const { size } = await fsp.stat(tempPath);
