@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- The bundled portable covdbg is 1.5.0. covdbg 1.4 is still the oldest version the extension drives.
+
 ## [1.0.1] - 2026-10-09
 
 ### Fixed
