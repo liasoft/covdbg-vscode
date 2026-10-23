@@ -66,6 +66,7 @@ Then start the `Run Extension` launch configuration or press `F5`.
 Notes:
 
 - The downloaded archive stays local because it is ignored by git.
+- `npm run build` bundles the x64 covdbg. `node ./scripts/downloadPortable.js win32-arm64` fetches the ARM64 one instead.
 - Set `COVDBG_PORTABLE_URL` to test with a different portable artifact.
 
 ## Tests And Validation
@@ -119,13 +120,20 @@ npm run lint
 
 ## Packaging
 
-Build a VSIX locally:
+Build the VSIXs locally:
 
 ```bash
 npm run package
 ```
 
-`vscode:prepublish` runs the build, so packaging downloads the current portable covdbg runtime from `https://covdbg.com/download/latest/portable.zip` every time.
+This builds two VSIXs, each bundling its own covdbg:
+
+- `covdbg-X.Y.Z.vsix`, the universal one, with the x64 covdbg from `https://covdbg.com/download/latest/portable.zip`. The x64 covdbg measures x64 and 32-bit x86 programs.
+- `covdbg-win32-arm64-X.Y.Z.vsix`, with the ARM64 covdbg from `https://covdbg.com/download/latest/portable-arm64.zip`. Only the ARM64 covdbg measures ARM64 programs.
+
+The Marketplace serves the win32-arm64 VSIX on Windows on ARM and the universal one everywhere else. Each package downloads its covdbg afresh and, on Windows, checks that it reports `covdbgBundledVersion` and is built for the right architecture.
+
+To build one of them, name its target: `npm run package -- win32-arm64`. `COVDBG_PORTABLE_URL` replaces the download for every target being packaged, so name one target when you set it.
 
 ## Release Process
 
@@ -141,10 +149,9 @@ The release workflow then:
 - validates that the tag matches `package.json`
 - installs dependencies
 - runs lint and tests
-- packages the extension as a VSIX
-- publishes the generated VSIX to the VS Code Marketplace
-- downloads the portable covdbg runtime during packaging
-- creates a GitHub Release and uploads the `.vsix` plus `SHA256SUMS.txt`
+- packages the universal and the win32-arm64 VSIX, each with its own portable covdbg, and checks each covdbg's version and architecture
+- publishes both VSIXs to the VS Code Marketplace
+- creates a GitHub Release and uploads both `.vsix` files plus `SHA256SUMS.txt`
 
 Before using the workflow for a real release, configure this repository secret:
 
@@ -155,7 +162,7 @@ Marketplace prerequisites:
 - the `publisher` field in `package.json` must already exist in the Visual Studio Marketplace
 - the PAT must belong to an account that can publish for that publisher
 
-Once the secret is present, a `vX.Y.Z` tag will both publish the extension to the VS Code Marketplace and attach the same VSIX to the GitHub release.
+Once the secret is present, a `vX.Y.Z` tag will both publish the extension to the VS Code Marketplace and attach the same VSIXs to the GitHub release.
 
 Use this check locally, on Windows, before tagging:
 

@@ -9,6 +9,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Changed
 
 - The bundled portable covdbg is 1.5.0. covdbg 1.4 is still the oldest version the extension drives.
+- On Windows on ARM, the extension now bundles the native ARM64 covdbg, so it measures ARM64 test programs without a separate covdbg install. It ships as its own win32-arm64 package, which VS Code picks on its own; everywhere else the extension still bundles the x64 covdbg.
 
 ## [1.0.1] - 2026-10-09
 
