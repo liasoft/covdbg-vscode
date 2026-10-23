@@ -16,7 +16,7 @@ Use the Node.js version in `.nvmrc` and npm scripts in `package.json` as the sou
 
 - Install dependencies with `npm ci`.
 - `npm run compile` checks VS Code manifest versions, typechecks, and bundles the extension.
-- `npm run build` additionally prepares the portable runtime, downloading it if the archive is missing or empty.
+- `npm run build` additionally prepares the portable runtime, downloading a fresh portable archive on every build.
 - `npm run watch` runs the watch bundler; F5 launches the VS Code Extension Development Host.
 - For code changes, run relevant checks: `npm run typecheck`, `npm run lint`, and `npm test`. The test lifecycle compiles the extension and tests automatically.
 - `npm run test:coverage` runs tests with coverage; `npm run format:check` checks formatting.
