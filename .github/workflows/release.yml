@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   release:
-    # Windows, so the bundled covdbg can be run to check its version before it ships.
+    # Windows, so packaging can check each bundled covdbg's version and architecture before it ships.
     runs-on: windows-latest
     defaults:
       run:
@@ -62,13 +62,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Verify bundled covdbg version
-        run: node ./scripts/verifyBundledCovdbg.js
-
       - name: Test
         run: npm test
 
-      - name: Package VSIX
+      # The universal VSIX bundles the x64 covdbg, the win32-arm64 VSIX the ARM64 one.
+      - name: Package VSIXs
         run: npm run package
 
       - name: Publish to VS Code Marketplace
@@ -79,14 +77,14 @@ jobs:
             exit 1
           fi
 
-          VSIX_PATH="$(find . -maxdepth 1 -type f -name '*.vsix' | head -n 1)"
+          mapfile -t VSIX_PATHS < <(find . -maxdepth 1 -type f -name '*.vsix' | sort)
 
-          if [ -z "$VSIX_PATH" ]; then
-            echo "No VSIX file was produced by the packaging step."
+          if [ "${#VSIX_PATHS[@]}" -ne 2 ]; then
+            echo "Expected the universal and the win32-arm64 VSIX, found: ${VSIX_PATHS[*]:-none}"
             exit 1
           fi
 
-          npx @vscode/vsce publish --packagePath "$VSIX_PATH" -p "$VSCE_PAT"
+          npx @vscode/vsce publish --packagePath "${VSIX_PATHS[@]}" -p "$VSCE_PAT"
 
       - name: Generate SHA256 checksum
         run: sha256sum *.vsix > SHA256SUMS.txt

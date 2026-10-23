@@ -26,7 +26,7 @@ Run your real test executables under [covdbg](https://covdbg.com/), see covered 
     - `covdbg.exe` on `PATH`;
     - the usual install folders.
 
-    If there is none, it falls back to the copy of covdbg bundled with the extension. To install covdbg yourself, see [covdbg.com/download](https://covdbg.com/download).
+    If there is none, it falls back to the copy of covdbg bundled with the extension. On Windows on ARM, the extension bundles the ARM64 covdbg, which measures ARM64 programs; elsewhere it bundles the x64 covdbg, which measures x64 and 32-bit x86 programs. To install covdbg yourself, see [covdbg.com/download](https://covdbg.com/download).
 
 Coverage runs need a local window in a trusted workspace. Viewing existing `.covdb` files works in Restricted Mode too.
 
