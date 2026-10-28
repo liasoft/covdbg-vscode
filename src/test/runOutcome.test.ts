@@ -135,6 +135,13 @@ test("covdbg's progress lines and the target's own output are not notices", () =
         "covdbg: coverage written to C:/quick-start/.covdbg/coverage.covdb",
         "covdbg: no coverage database was written to C:/quick-start/.covdbg/coverage.covdb",
         "covdbg: 1 of 1 basic blocks hit (100.0%), analysis 82 ms, run 30 ms",
+        // covdbg 1.5.1's summary below the program's output (PrintRunSummary in covdbg's main.cpp)
+        "covdbg: test_app.exe exited with code 0",
+        "covdbg: test_app.exe exited with code 1; covdbg's own exit code does not carry it (see --propagate-exit-code)",
+        "covdbg: test_app.exe exited with 0xc0000005; covdbg's own exit code does not carry it (see --propagate-exit-code)",
+        "covdbg: continued past 2 breakpoint(s) the program did not handle (__debugbreak, DebugBreak); without a debugger it would have ended at the first",
+        "covdbg: nothing was measured: no function of test_app.exe passes the coverage filter of .covdbg.yaml",
+        "covdbg: an empty coverage database was written to C:/quick-start/.covdbg/coverage.covdb",
         "[  PASSED  ] 3 tests.",
         "",
     ]) {
