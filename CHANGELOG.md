@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-28
+
 ### Changed
 
 - The bundled portable covdbg is 1.5.1. Its coverage databases (schema version 9) show in the editor like earlier ones.
