@@ -2,7 +2,7 @@
     "name": "covdbg",
     "displayName": "covdbg",
     "description": "Native Windows C++ coverage in VS Code. Run coverage, inspect inline results, browse reports, and rerun test binaries from the Testing UI.",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "author": "Liasoft GmbH",
     "publisher": "covdbg",
     "license": "Apache-2.0",
@@ -40,7 +40,7 @@
         "onMcpCollection:covdbg.mcp"
     ],
     "main": "./out/extension.js",
-    "covdbgBundledVersion": "1.5.0",
+    "covdbgBundledVersion": "1.5.1",
     "capabilities": {
         "untrustedWorkspaces": {
             "supported": "limited",
@@ -485,16 +485,16 @@
         "@types/node": "^24.19.2",
         "@types/sql.js": "^1.4.11",
         "@types/vscode": "^1.140.0",
-        "@typescript-eslint/eslint-plugin": "^8.72.0",
-        "@typescript-eslint/parser": "^8.72.0",
+        "@typescript-eslint/eslint-plugin": "^8.72.1",
+        "@typescript-eslint/parser": "^8.72.1",
         "@vscode/test-electron": "^3.1.0",
-        "@vscode/vsce": "^4.0.0",
+        "@vscode/vsce": "^4.1.0",
         "c8": "^12.0.0",
         "esbuild": "^0.28.2",
         "eslint": "^10.13.0",
         "js-yaml": "^5.5.0",
         "prettier": "^3.9.10",
-        "sql.js": "^1.15.1",
+        "sql.js": "^1.15.2",
         "typescript": "^6.0.3"
     }
 }
