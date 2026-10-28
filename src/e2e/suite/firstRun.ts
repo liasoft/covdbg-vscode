@@ -105,6 +105,8 @@ export async function run(): Promise<void> {
                 console.log(indent(tree));
                 assert.match(tree, /main\.cpp/);
                 assert.doesNotMatch(tree, /vcruntime|crt|stl|Windows Kits/i);
+                // How the program exited is in the log, not a notice in the view
+                assert.doesNotMatch(tree, /exited with/);
             },
         ],
         [

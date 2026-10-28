@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- The bundled portable covdbg is 1.5.1. Its coverage databases (schema version 9) show in the editor like earlier ones.
+
+### Fixed
+
+- With covdbg 1.5.1, the Coverage view no longer shows how the test program exited (`test_app.exe exited with code 0`) as a warning after every run. That line, and the reason a run measured nothing, stay in the covdbg output log.
+
 ## [1.1.0] - 2026-10-24
 
 ### Changed

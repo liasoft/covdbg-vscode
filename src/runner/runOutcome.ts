@@ -14,12 +14,19 @@ export interface RunNotice {
 export const PROFILE_URL = "https://app.covdbg.com/profile";
 export const APP_URL = "https://app.covdbg.com";
 
-/** covdbg's own progress lines on stdout, which say nothing about the license. */
+/**
+ * covdbg's own progress lines on stdout, which say nothing about the license. Since covdbg 1.5.1
+ * every run also says how the program exited and, where nothing was measured, why.
+ */
 const PROGRESS_LINES = [
     /^collecting coverage for /,
     /^coverage written to /,
+    /^an empty coverage database was written to /,
     /^no coverage database was written to /,
     /^\d+ of \d+ basic blocks hit /,
+    /^continued past \d+ breakpoint\(s\) the program did not handle/,
+    / exited with (code \d+|0x[0-9a-f]{8})(;|$)/,
+    /^nothing was measured: /,
 ];
 
 /**
