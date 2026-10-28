@@ -37,14 +37,15 @@ function buildFakeCovdbg(): string {
 
 /**
  * quick-start with its git history (covdbg licenses by repository, and quick-start's is public)
- * but without its .covdbg.yaml, built fresh so the debug info names the copy's sources.
+ * but without its .covdbg.yaml or a coverage database of an earlier run, built fresh so the debug
+ * info names the copy's sources.
  */
 function prepareQuickStart(name: string, settings: Record<string, unknown>): string {
     const folder = path.join(work, name);
     fs.rmSync(folder, { recursive: true, force: true });
     fs.cpSync(quickStart, folder, {
         recursive: true,
-        filter: (source) => path.basename(source) !== "build",
+        filter: (source) => !["build", ".covdbg"].includes(path.basename(source)),
     });
     fs.rmSync(path.join(folder, ".covdbg.yaml"), { force: true });
     run("cmake", ["-S", folder, "-B", path.join(folder, "build")]);
