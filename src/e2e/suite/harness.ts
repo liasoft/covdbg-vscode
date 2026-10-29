@@ -146,6 +146,28 @@ export async function openScenarioFolder(): Promise<string> {
 }
 
 /**
+ * PowerShell that sets $h to this test's VS Code window, with user32 calls in [W]. It is DPI
+ * aware, so sizes are screen pixels and a scaled display does not crop the screenshot.
+ */
+const findWindow = `
+Add-Type @'
+using System; using System.Runtime.InteropServices;
+public static class W {
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int ht, bool paint);
+  public struct R { public int L, T, Ri, B; }
+}
+'@
+[W]::SetProcessDPIAware() | Out-Null
+$p = Get-Process -Id ${process.ppid}
+while ($p -and $p.MainWindowHandle -eq 0) { $p = $p.Parent }
+$h = $p.MainWindowHandle`;
+
+/**
  * A PNG of this test's VS Code window, rendered even when another window covers it, saved to
  * %TEMP%\covdbg-e2e\shots\<name>.png for a person to look at.
  */
@@ -154,17 +176,7 @@ export function screenshot(name: string): string {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const script = `
 Add-Type -AssemblyName System.Drawing
-Add-Type @'
-using System; using System.Runtime.InteropServices;
-public static class W {
-  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint f);
-  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
-  public struct R { public int L, T, Ri, B; }
-}
-'@
-$p = Get-Process -Id ${process.ppid}
-while ($p -and $p.MainWindowHandle -eq 0) { $p = $p.Parent }
-$h = $p.MainWindowHandle
+${findWindow}
 $r = New-Object W+R; [W]::GetWindowRect($h, [ref]$r) | Out-Null
 $b = New-Object System.Drawing.Bitmap ($r.Ri - $r.L), ($r.B - $r.T)
 $g = [System.Drawing.Graphics]::FromImage($b)
@@ -172,6 +184,19 @@ $g = [System.Drawing.Graphics]::FromImage($b)
 $g.ReleaseHdc(); $b.Save('${file}'); $g.Dispose(); $b.Dispose()`;
     execFileSync("powershell.exe", ["-NoProfile", "-Command", script]);
     return file;
+}
+
+/**
+ * Restores this test's VS Code window and sizes it in unscaled pixels, so screenshots show the
+ * same layout whatever the display scaling; the PNG is that size times the scaling.
+ */
+export function resizeWindow(width: number, height: number): void {
+    const script = `
+${findWindow}
+$s = [W]::GetDpiForWindow($h) / 96
+[W]::ShowWindow($h, 9) | Out-Null
+[W]::MoveWindow($h, 40, 40, [int](${width} * $s), [int](${height} * $s), $true) | Out-Null`;
+    execFileSync("powershell.exe", ["-NoProfile", "-Command", script]);
 }
 
 /**

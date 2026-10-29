@@ -102,6 +102,7 @@ Run the end-to-end tests (Windows only, run locally, not in CI):
 ```bash
 npm run test:e2e             # every scenario
 npm run test:e2e -- signIn   # one scenario: plainFolder, firstRun or signIn
+npm run test:e2e -- docsShots  # the screenshots for the covdbg.com page, light theme, 1024 × 640
 ```
 
 They launch VS Code with the extension against a fresh copy of the [quick-start](https://github.com/liasoft/covdbg-quick-start) sample. That copy is built with CMake, then run with the real covdbg, so they need:
@@ -110,7 +111,7 @@ They launch VS Code with the extension against a fresh copy of the [quick-start]
 - CMake with MSVC;
 - quick-start checked out next to this repository (or at `COVDBG_E2E_QUICKSTART`).
 
-The sign-in scenario uses a covdbg stand-in (`src/e2e/fakeCovdbg`), so the machine's own sign-in is never touched. Set `COVDBG_E2E_VSCODE` to an installed `Code.exe` to skip downloading VS Code into `.vscode-test/`. Scratch folders go to `%TEMP%\covdbg-e2e`.
+The sign-in scenario uses a covdbg stand-in (`src/e2e/fakeCovdbg`), so the machine's own sign-in is never touched. Set `COVDBG_E2E_VSCODE` to an installed `Code.exe` to skip downloading VS Code into `.vscode-test/`. Scratch folders, and the screenshots under `shots`, go to `%TEMP%\covdbg-e2e`, or to `COVDBG_E2E_WORK`. The screenshots show that folder's path, so `docsShots` is best run with a short neutral one, such as `C:\e2e`.
 
 Run linting:
 

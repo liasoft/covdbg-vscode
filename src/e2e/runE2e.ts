@@ -6,9 +6,11 @@
  *   npm run test:e2e              all scenarios
  *   npm run test:e2e -- signIn    one scenario
  *   npm run test:e2e -- realSignIn  signs the machine out, then in through app.covdbg.com
+ *   npm run test:e2e -- docsShots   the documentation screenshots, in <work>\shots
  *
  * Needs Windows, covdbg 1.4+ on PATH (signed in), CMake with MSVC, git, and the quick-start sample
- * next to this repo (or COVDBG_E2E_QUICKSTART).
+ * next to this repo (or COVDBG_E2E_QUICKSTART). Scratch folders go to COVDBG_E2E_WORK, by default
+ * %TEMP%\covdbg-e2e.
  */
 import { execFileSync } from "child_process";
 import * as fs from "fs";
@@ -17,7 +19,7 @@ import * as path from "path";
 import { runTests } from "@vscode/test-electron";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
-const work = path.join(os.tmpdir(), "covdbg-e2e");
+const work = process.env.COVDBG_E2E_WORK ?? path.join(os.tmpdir(), "covdbg-e2e");
 const quickStart = process.env.COVDBG_E2E_QUICKSTART ?? path.resolve(repoRoot, "..", "quick-start");
 
 function run(file: string, args: string[], cwd?: string): string {
@@ -76,11 +78,11 @@ function writeSettings(folder: string, settings: Record<string, unknown>): void 
  * are in; the test then swaps `folder` in, which activates it the way opening that folder would.
  * The folder to swap in reaches the test as COVDBG_E2E_FOLDER.
  */
-function prepareWorkspaceFile(name: string): string {
+function prepareWorkspaceFile(name: string, settings: Record<string, unknown> = {}): string {
     const empty = path.join(work, "empty");
     fs.mkdirSync(empty, { recursive: true });
     const file = path.join(work, `${name}.code-workspace`);
-    fs.writeFileSync(file, JSON.stringify({ folders: [{ path: empty }] }, null, 4));
+    fs.writeFileSync(file, JSON.stringify({ folders: [{ path: empty }], settings }, null, 4));
     return file;
 }
 
@@ -90,6 +92,8 @@ interface Scenario {
     folder: () => string;
     swapIn?: boolean;
     env?: Record<string, string>;
+    /** Window-wide settings, such as the theme, which a folder's settings cannot set. */
+    windowSettings?: Record<string, unknown>;
     /** Runs only when named: it changes the machine's own covdbg sign-in. */
     onlyByName?: boolean;
 }
@@ -114,6 +118,22 @@ async function main(): Promise<void> {
             folder: () => prepareQuickStart("real-sign-in", {}),
             swapIn: true,
             env: { COVDBG_E2E_SIGN_IN_URL: path.join(work, "sign-in-url.txt") },
+            onlyByName: true,
+        },
+        {
+            // Signed in through the stand-in, so the shots show its example account.
+            name: "docsShots",
+            folder: () => prepareQuickStart("quick-start", { "covdbg.executablePath": fake }),
+            swapIn: true,
+            env: {
+                FAKE_COVDBG_STATE: fakeState,
+                FAKE_COVDBG_REAL: real,
+                FAKE_COVDBG_VERSION: run(real, ["--version"]).trim(),
+            },
+            windowSettings: {
+                "workbench.colorTheme": "Default Light Modern",
+                "workbench.secondarySideBar.defaultVisibility": "hidden",
+            },
             onlyByName: true,
         },
     ];
@@ -141,7 +161,9 @@ async function main(): Promise<void> {
                     COVDBG_E2E_SHOTS: path.join(work, "shots"),
                 },
                 launchArgs: [
-                    scenario.swapIn ? prepareWorkspaceFile(scenario.name) : folder,
+                    scenario.swapIn
+                        ? prepareWorkspaceFile(scenario.name, scenario.windowSettings)
+                        : folder,
                     "--disable-workspace-trust",
                     "--skip-welcome",
                     "--skip-release-notes",
