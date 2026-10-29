@@ -62,7 +62,10 @@ int wmain(int argc, wchar_t** argv)
     std::wstring command = argc > 1 ? argv[1] : L"";
 
     if (command == L"--version") {
-        Say("covdbg 1.4.0");
+        // FAKE_COVDBG_VERSION, when set, is the real covdbg's line, so the editor shows its version.
+        char version[64];
+        Say(GetEnvironmentVariableA("FAKE_COVDBG_VERSION", version, sizeof(version)) ? version
+                                                                                     : "covdbg 1.4.0");
         return 0;
     }
     if (command == L"whoami") {
