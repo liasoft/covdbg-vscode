@@ -15,7 +15,6 @@ tsconfig.tests.json
 **/tsconfig.json
 **/*.map
 **/*.ts
-!**/*.d.ts
 QUICKSTART.md
 gif/**
 AGENTS.md
