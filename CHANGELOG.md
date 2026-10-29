@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-29
+
+### Fixed
+
+- When the last folder is removed from the window, the coverage it had loaded no longer stays in the status bar and the report.
+- Closing the coverage report while it is still loading no longer logs an error.
+
 ## [1.1.1] - 2026-10-28
 
 ### Changed
