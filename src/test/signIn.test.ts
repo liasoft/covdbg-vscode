@@ -8,7 +8,7 @@ import {
     signIn,
     signOut,
 } from "../runner/signIn";
-import { fakeCovdbg, settle } from "./fakeCovdbg";
+import { answerWhoami, fakeCovdbg, settle, stubSpawn } from "./fakeCovdbg";
 
 const EXE = "C:/covdbg/covdbg.exe";
 const PROMPT =
@@ -80,6 +80,7 @@ test("whoami --json that is not the contract's object is an error", async () => 
         ["covdbg: unknown option --json\n", 2, /expected JSON.*exit code 2/],
         ["", 0, /expected JSON/],
         ["[]", 0, /expected JSON/],
+        ["null", 0, /expected JSON/],
         ['{"email":"a@acme.com"}', 0, /expected JSON/],
         ['{"signedIn":"yes"}', 0, /expected JSON/],
     ];
@@ -220,4 +221,95 @@ test("sign-out passes on the 'Signed out' line and the service's problem", async
         ),
         { message: "Signed out dev@example.com.", serviceProblem: undefined },
     );
+    assert.deepEqual(parseSignOut("Not signed in.\n"), {
+        message: "Not signed in.",
+        serviceProblem: undefined,
+    });
+    assert.deepEqual(parseSignOut(""), { message: "Signed out.", serviceProblem: undefined });
+});
+
+test("a failed sign-in without a line on stdout says what stderr said, or how covdbg exited", async () => {
+    const login = (script: Parameters<typeof fakeCovdbg>[0]) =>
+        signIn(EXE, {}, () => undefined, new AbortController().signal, fakeCovdbg(script).start);
+
+    assert.deepEqual(
+        await login((process) => {
+            process.stderr.emit("data", Buffer.from("covdbg: the service is down\r\n"));
+            process.exit(1);
+        }),
+        { kind: "failed", message: "covdbg: the service is down" },
+    );
+    assert.deepEqual(await login((process) => process.exit(5)), {
+        kind: "failed",
+        message: "covdbg login exited with code 5",
+    });
+    assert.deepEqual(await login((process) => process.emit("error", new Error("ENOENT"))), {
+        kind: "failed",
+        message: "Failed to start covdbg login: ENOENT",
+    });
+});
+
+test("a sign-in that outlasts covdbg's own limit is given up", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const covdbg = fakeCovdbg((process) => process.print(PROMPT));
+    const result = signIn(EXE, {}, () => undefined, new AbortController().signal, covdbg.start);
+    await settle();
+
+    t.mock.timers.tick(11 * 60_000);
+    assert.deepEqual(await result, {
+        kind: "failed",
+        message: "The sign-in did not finish in time.",
+    });
+    assert.equal(covdbg.started[0].killed, true);
+});
+
+test("a failed sign-out says covdbg's last line, or how it exited", async () => {
+    const logout = (script: Parameters<typeof fakeCovdbg>[0]) =>
+        signOut(EXE, {}, fakeCovdbg(script).start);
+
+    assert.deepEqual(
+        await logout((process) => {
+            process.print("Signing out...\nThe credential store is locked.\n");
+            process.exit(1);
+        }),
+        { ok: false, message: "The credential store is locked." },
+    );
+    assert.deepEqual(
+        await logout((process) => {
+            process.stderr.emit("data", Buffer.from("covdbg: access denied\n"));
+            process.exit(1);
+        }),
+        { ok: false, message: "covdbg: access denied" },
+    );
+    assert.deepEqual(await logout((process) => process.exit(1)), {
+        ok: false,
+        message: "covdbg logout exited with code 1",
+    });
+    assert.deepEqual(await logout((process) => process.emit("error", new Error("EACCES"))), {
+        ok: false,
+        message: "Failed to start covdbg: EACCES",
+    });
+});
+
+test("a covdbg that does not answer whoami in time is killed and reported", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const covdbg = fakeCovdbg(() => undefined);
+    const result = querySignIn(EXE, {}, covdbg.start);
+    await settle();
+
+    t.mock.timers.tick(15_000);
+    assert.deepEqual(await result, {
+        kind: "error",
+        message: "covdbg whoami did not finish in time.",
+    });
+    assert.equal(covdbg.started[0].killed, true);
+});
+
+test("unless told otherwise, covdbg is started hidden with the environment given", async (t) => {
+    const spawned = stubSpawn((process) => answerWhoami(process, undefined));
+    t.after(spawned.restore);
+
+    assert.deepEqual(await querySignIn(EXE, { marker: "1" }), { kind: "signedOut" });
+    assert.equal(spawned.started[0].command, EXE);
+    assert.deepEqual(spawned.started[0].options, { env: { marker: "1" }, windowsHide: true });
 });

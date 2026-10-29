@@ -45,7 +45,6 @@ import {
     resolvePathFromWorkspace,
     readRunnerSettings,
     resolveRunnerPaths,
-    getWorkspaceRoot,
 } from "./runner/settings";
 import { dedupeNormalizedPaths, deriveCoverageBatchOutputPath } from "./runner/outputPaths";
 
@@ -147,7 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
             return resolveCovdbgRuntime(
                 context,
                 readRunnerSettings(folder?.uri),
-                folder?.uri.fsPath ?? getWorkspaceRoot() ?? process.cwd(),
+                folder?.uri.fsPath ?? process.cwd(),
             );
         },
         readSettingsEnv: () => readRunnerSettings(getPreferredWorkspaceFolder()?.uri).env,
@@ -311,34 +310,22 @@ export function deactivate(): void {
 
 async function discoverAndLoadIndex(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    let anyLoaded = false;
 
     if (!workspaceFolders || workspaceFolders.length === 0) {
-        const explicitCandidates = await getExplicitCovdbCandidates();
-        if (explicitCandidates.length > 0) {
-            const newestExplicit = await getMostRecentPath(explicitCandidates);
-            if (newestExplicit) {
-                await loadIndex(newestExplicit, "settings");
-                anyLoaded = true;
-            }
-        }
-
-        if (!anyLoaded) {
-            const found = await findDiscoveredCovdbFiles();
-            if (found.length > 0) {
-                const newest = await getMostRecentFile(found);
-                if (newest) {
-                    await loadIndex(newest.fsPath, "auto-discovered");
-                    anyLoaded = true;
-                }
+        const explicitCandidate = await getExplicitCovdbCandidate();
+        if (explicitCandidate) {
+            await loadIndex(explicitCandidate, "settings");
+        } else {
+            const newest = await getMostRecentFile(await findDiscoveredCovdbFiles());
+            if (newest) {
+                await loadIndex(newest.fsPath, "auto-discovered");
             }
         }
     } else {
         for (const folder of workspaceFolders) {
-            const explicitCandidate = await getExplicitCovdbCandidateForFolder(folder);
+            const explicitCandidate = await getExplicitCovdbCandidate(folder);
             if (explicitCandidate) {
                 await loadIndex(explicitCandidate, "settings", folder);
-                anyLoaded = true;
                 continue;
             }
 
@@ -346,13 +333,13 @@ async function discoverAndLoadIndex(): Promise<void> {
             const newest = await getMostRecentFile(discoveredFiles);
             if (newest) {
                 await loadIndex(newest.fsPath, "auto-discovered", folder);
-                anyLoaded = true;
             } else {
                 clearCoverageState(folder, false);
             }
         }
-        pruneCoverageStates(workspaceFolders);
     }
+    // Folders that have left the window take their coverage with them, the last one too.
+    pruneCoverageStates(workspaceFolders ?? []);
 
     updateActiveWorkspaceUi();
     coverageTree.refresh();
@@ -921,9 +908,8 @@ async function openConfigCommand(): Promise<void> {
 /** Opens covdbg's own log from the folder's last run. */
 async function openLogCommand(): Promise<void> {
     const folder = getPreferredWorkspaceFolder(vscode.window.activeTextEditor?.document.uri.fsPath);
-    const workspaceRoot = folder?.uri.fsPath ?? getWorkspaceRoot();
-    const appDataPath = workspaceRoot
-        ? resolveRunnerPaths(readRunnerSettings(folder?.uri), workspaceRoot).appDataPath
+    const appDataPath = folder
+        ? resolveRunnerPaths(readRunnerSettings(folder.uri), folder.uri.fsPath).appDataPath
         : undefined;
     const candidates = appDataPath
         ? [path.join(appDataPath, "covdbg.log"), path.join(appDataPath, "Logs", "covdbg.log")]
@@ -1157,7 +1143,6 @@ async function finalizeBatchCoverageOutputs(
     }
 
     const finalInputPaths = dedupeNormalizedPaths(successfulOutputPaths);
-    lastRunOutputPaths = dedupeNormalizedPaths(generatedOutputPaths);
 
     const finalized =
         finalInputPaths.length === 1
@@ -1178,26 +1163,21 @@ async function finalizeBatchCoverageOutputs(
 }
 
 function buildBatchIntermediateOutputPath(targetExecutablePath: string): string | undefined {
-    const workspaceFolder = getPreferredWorkspaceFolder(targetExecutablePath);
-    const workspaceRoot = workspaceFolder?.uri.fsPath ?? getWorkspaceRoot();
-    if (!workspaceRoot) {
-        return undefined;
-    }
-
-    const settings = readRunnerSettings(workspaceFolder?.uri);
-    const paths = resolveRunnerPaths(settings, workspaceRoot);
-    return deriveCoverageBatchOutputPath(paths.configuredOutputPath, targetExecutablePath);
+    const canonicalOutputPath = getCanonicalCoverageOutputPath(targetExecutablePath);
+    return (
+        canonicalOutputPath &&
+        deriveCoverageBatchOutputPath(canonicalOutputPath, targetExecutablePath)
+    );
 }
 
-function getCanonicalCoverageOutputPath(targetPathForWorkspace: string): string | undefined {
-    const workspaceFolder = getPreferredWorkspaceFolder(targetPathForWorkspace);
-    const workspaceRoot = workspaceFolder?.uri.fsPath ?? getWorkspaceRoot();
-    if (!workspaceRoot) {
-        return undefined;
-    }
-
-    const settings = readRunnerSettings(workspaceFolder?.uri);
-    return resolveRunnerPaths(settings, workspaceRoot).configuredOutputPath;
+/** Where a run in the folder of `pathInFolder` writes its .covdb unless told otherwise. */
+function getCanonicalCoverageOutputPath(pathInFolder: string): string | undefined {
+    const workspaceFolder = getPreferredWorkspaceFolder(pathInFolder);
+    return (
+        workspaceFolder &&
+        resolveRunnerPaths(readRunnerSettings(workspaceFolder.uri), workspaceFolder.uri.fsPath)
+            .configuredOutputPath
+    );
 }
 
 async function copyCoverageFile(sourcePath: string, targetPath: string): Promise<boolean> {
@@ -1216,75 +1196,29 @@ async function copyCoverageFile(sourcePath: string, targetPath: string): Promise
     }
 }
 
-function resolveWorkspacePathForFolder(
-    inputPath: string,
-    workspaceFolder: vscode.WorkspaceFolder,
-): string {
-    if (path.isAbsolute(inputPath)) {
-        return inputPath;
-    }
-    return path.resolve(workspaceFolder.uri.fsPath, inputPath);
-}
-
-async function getExplicitCovdbCandidates(): Promise<string[]> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    const candidates: string[] = [];
-
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        const explicit = vscode.workspace
-            .getConfiguration("covdbg")
-            .get<string>("covdbPath", "")
-            .trim();
-        if (explicit) {
-            if (await fileExists(explicit)) {
-                candidates.push(explicit);
-            } else {
-                output.logError(`covdbg.covdbPath not found: ${explicit}`);
-            }
-        }
-        return candidates;
-    }
-
-    for (const folder of workspaceFolders) {
-        const explicit = vscode.workspace
-            .getConfiguration("covdbg", folder.uri)
-            .get<string>("covdbPath", "")
-            .trim();
-        if (!explicit) {
-            continue;
-        }
-
-        const resolved = resolveWorkspacePathForFolder(explicit, folder);
-        if (await fileExists(resolved)) {
-            candidates.push(resolved);
-        } else {
-            output.logError(
-                `covdbg.covdbPath not found for workspace folder ${folder.name}: ${resolved}`,
-            );
-        }
-    }
-
-    return dedupePaths(candidates);
-}
-
-async function getExplicitCovdbCandidateForFolder(
-    workspaceFolder: vscode.WorkspaceFolder,
+/** covdbg.covdbPath, resolved against the folder, when the file is there. */
+async function getExplicitCovdbCandidate(
+    workspaceFolder?: vscode.WorkspaceFolder,
 ): Promise<string | undefined> {
     const explicit = vscode.workspace
-        .getConfiguration("covdbg", workspaceFolder.uri)
+        .getConfiguration("covdbg", workspaceFolder?.uri)
         .get<string>("covdbPath", "")
         .trim();
     if (!explicit) {
         return undefined;
     }
 
-    const resolved = resolveWorkspacePathForFolder(explicit, workspaceFolder);
+    const resolved = workspaceFolder
+        ? resolvePathFromWorkspace(explicit, workspaceFolder.uri.fsPath)
+        : explicit;
     if (await fileExists(resolved)) {
         return resolved;
     }
 
     output.logError(
-        `covdbg.covdbPath not found for workspace folder ${workspaceFolder.name}: ${resolved}`,
+        workspaceFolder
+            ? `covdbg.covdbPath not found for workspace folder ${workspaceFolder.name}: ${resolved}`
+            : `covdbg.covdbPath not found: ${explicit}`,
     );
     return undefined;
 }
@@ -1333,33 +1267,13 @@ async function findDiscoveredCovdbFiles(
 }
 
 async function findCovdbgConfigFiles(
-    workspaceFolder?: vscode.WorkspaceFolder,
-    maxResults = MAX_DISCOVERED_COVDB_FILES,
+    workspaceFolder: vscode.WorkspaceFolder,
 ): Promise<vscode.Uri[]> {
-    if (workspaceFolder) {
-        return vscode.workspace.findFiles(
-            new vscode.RelativePattern(workspaceFolder, CONFIG_FILE_GLOB),
-            DISCOVERY_EXCLUDE_GLOB,
-            maxResults,
-        );
-    }
-
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return vscode.workspace.findFiles(CONFIG_FILE_GLOB, DISCOVERY_EXCLUDE_GLOB, maxResults);
-    }
-
-    const found: vscode.Uri[] = [];
-    for (const folder of workspaceFolders) {
-        const matches = await vscode.workspace.findFiles(
-            new vscode.RelativePattern(folder, CONFIG_FILE_GLOB),
-            DISCOVERY_EXCLUDE_GLOB,
-            maxResults,
-        );
-        found.push(...matches);
-    }
-
-    return dedupeUris(found);
+    return vscode.workspace.findFiles(
+        new vscode.RelativePattern(workspaceFolder, CONFIG_FILE_GLOB),
+        DISCOVERY_EXCLUDE_GLOB,
+        MAX_DISCOVERED_COVDB_FILES,
+    );
 }
 
 async function pickWorkspaceFolderForConfig(): Promise<vscode.WorkspaceFolder | undefined> {
@@ -1388,20 +1302,6 @@ async function pickWorkspaceFolderForConfig(): Promise<vscode.WorkspaceFolder | 
         },
     );
     return picked?.folder;
-}
-
-function dedupePaths(paths: string[]): string[] {
-    const seen = new Set<string>();
-    const deduped: string[] = [];
-    for (const filePath of paths) {
-        const key = path.normalize(filePath).toLowerCase();
-        if (seen.has(key)) {
-            continue;
-        }
-        seen.add(key);
-        deduped.push(filePath);
-    }
-    return deduped;
 }
 
 function dedupeUris(uris: vscode.Uri[]): vscode.Uri[] {
@@ -1541,19 +1441,6 @@ async function getMostRecentFile(files: vscode.Uri[]): Promise<vscode.Uri | unde
     return newest;
 }
 
-async function getMostRecentPath(paths: string[]): Promise<string | undefined> {
-    let newest: string | undefined;
-    let best = 0;
-    for (const candidatePath of paths) {
-        const mt = await getMtime(candidatePath);
-        if (mt > best) {
-            best = mt;
-            newest = candidatePath;
-        }
-    }
-    return newest;
-}
-
 async function getMtime(filePath: string): Promise<number> {
     try {
         return (await fs.stat(filePath)).mtimeMs;
@@ -1615,7 +1502,7 @@ async function refreshTestControllerItems(): Promise<void> {
         return;
     }
 
-    const binaries = dedupePaths([
+    const binaries = dedupeNormalizedPaths([
         ...(await listDiscoveredExecutablePaths()),
         ...(await listRememberedTargets()),
     ]);

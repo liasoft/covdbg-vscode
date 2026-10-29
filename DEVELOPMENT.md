@@ -95,7 +95,7 @@ Run the test suite with coverage:
 npm run test:coverage
 ```
 
-The coverage command measures compiled extension modules under `test-out/`, excludes compiled test files, prints a text summary, and writes `coverage/lcov.info` for Codecov.
+The coverage command measures every compiled extension module under `test-out/`, including those no test loads, and leaves out the tests, their helpers and the end-to-end suite. It prints a text summary and writes `coverage/lcov.info` for Codecov.
 
 Run the end-to-end tests (Windows only, run locally, not in CI):
 

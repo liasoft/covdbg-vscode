@@ -66,6 +66,10 @@ export class CoverageReport {
         if (this.functionIndex.size === 0 && activeCovdbPath) {
             this.functionIndex = await CovdbParser.loadFunctionIndex(activeCovdbPath);
         }
+        // The report may have been closed while the functions loaded.
+        if (!this.panel) {
+            return;
+        }
         this.panel.webview.html = generateReportHtml({
             fileIndex,
             functionIndex: this.functionIndex,

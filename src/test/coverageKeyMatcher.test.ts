@@ -37,3 +37,49 @@ test("findBestCoverageKey uses workspace-relative uniqueness", () => {
 
     assert.equal(result, "src\\main.cpp");
 });
+
+test("findBestCoverageKey matches workspace-relative keys on POSIX and UNC paths too", () => {
+    assert.equal(
+        findBestCoverageKey(
+            "/home/dev/app/src/main.cpp",
+            ["src/main.cpp", "src/util.cpp"],
+            "/home/dev/app",
+        ),
+        "src/main.cpp",
+    );
+    assert.equal(
+        findBestCoverageKey(
+            "\\\\server\\share\\app\\src\\main.cpp",
+            ["src\\main.cpp", "src\\util.cpp"],
+            "\\\\server\\share\\app",
+        ),
+        "src\\main.cpp",
+    );
+});
+
+test("findBestCoverageKey falls back to a unique suffix for a file outside the workspace", () => {
+    assert.equal(
+        findBestCoverageKey(
+            "D:\\sdk\\include\\vector.h",
+            ["include\\vector.h", "src\\main.cpp"],
+            "D:\\app",
+        ),
+        "include\\vector.h",
+    );
+    assert.equal(
+        findBestCoverageKey("main.cpp", ["D:\\app\\src\\main.cpp", "D:\\app\\src\\util.cpp"]),
+        "D:\\app\\src\\main.cpp",
+        "a recorded path may also end with the editor's",
+    );
+});
+
+test("findBestCoverageKey gives up when several keys match the workspace-relative path", () => {
+    assert.equal(
+        findBestCoverageKey(
+            "D:\\app\\src\\main.cpp",
+            ["D:\\old\\src\\main.cpp", "E:\\copy\\src\\main.cpp"],
+            "D:\\app",
+        ),
+        undefined,
+    );
+});
