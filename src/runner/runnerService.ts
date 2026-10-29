@@ -34,34 +34,13 @@ export async function runCoverageForTarget(
     context: vscode.ExtensionContext,
     targetExecutablePath: string,
     outputPathOverride?: string,
-    onStart?: () => void,
-): Promise<RunResult> {
-    return runCoverageInternal(
-        context,
-        {
-            targetExecutableOverride: targetExecutablePath,
-            outputPathOverride,
-        },
-        onStart,
-    );
-}
-
-interface RunOptions {
-    targetExecutableOverride: string;
-    outputPathOverride?: string;
-}
-
-async function runCoverageInternal(
-    context: vscode.ExtensionContext,
-    options: RunOptions,
-    onStart?: () => void,
 ): Promise<RunResult> {
     const trustErr = await ensurePreflight();
     if (trustErr) {
         return { success: false, notices: [], problem: trustErr };
     }
 
-    const workspaceFolder = getPreferredWorkspaceFolder(options.targetExecutableOverride);
+    const workspaceFolder = getPreferredWorkspaceFolder(targetExecutablePath);
     const settings = readRunnerSettings(workspaceFolder?.uri);
     const workspaceRoot = workspaceFolder?.uri.fsPath ?? getWorkspaceRoot();
     if (!workspaceRoot) {
@@ -69,7 +48,7 @@ async function runCoverageInternal(
     }
 
     const effectiveTargetExecutablePath = await resolveTargetExecutable(
-        options.targetExecutableOverride,
+        targetExecutablePath,
         workspaceRoot,
     );
     if (!effectiveTargetExecutablePath) {
@@ -79,9 +58,7 @@ async function runCoverageInternal(
     }
 
     const paths = resolveRunnerPaths(settings, workspaceRoot);
-    const outputPath = options.outputPathOverride
-        ? path.normalize(options.outputPathOverride)
-        : paths.outputPath;
+    const outputPath = outputPathOverride ? path.normalize(outputPathOverride) : paths.outputPath;
 
     const explicitConfig = settings.configPath.trim();
     const effectiveConfigPath = await resolveEffectiveConfigPath(
@@ -135,7 +112,6 @@ async function runCoverageInternal(
             }
         });
 
-    onStart?.();
     let problem: RunProblem | undefined;
     const executeRun = () =>
         new Promise<boolean>((resolve) => {

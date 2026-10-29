@@ -35,23 +35,13 @@ export async function resolveEffectiveConfigPath(
         return undefined;
     }
 
-    const nearest = await findNearestCovdbgYaml(path.dirname(targetExecutablePath), workspaceRoot);
-    if (nearest) {
-        return nearest;
-    }
-    return undefined;
+    return findNearestCovdbgYaml(path.dirname(targetExecutablePath), workspaceRoot);
 }
 
-export async function discoverExecutableCandidates(
-    workspaceRoot?: string,
-): Promise<CandidateExe[]> {
-    const workspaceFolder = workspaceRoot
-        ? vscode.workspace.workspaceFolders?.find((folder) => folder.uri.fsPath === workspaceRoot)
-        : undefined;
-    const folders = workspaceFolder ? [workspaceFolder] : getWorkspaceFoldersInPreferenceOrder();
+export async function discoverExecutableCandidates(): Promise<CandidateExe[]> {
     const candidates: CandidateExe[] = [];
 
-    for (const folder of folders) {
+    for (const folder of getWorkspaceFoldersInPreferenceOrder()) {
         const settings = readRunnerSettings(folder.uri);
         const pattern = settings.binaryDiscoveryPattern;
         const excludePattern = buildExecutableDiscoveryExcludePattern(
@@ -77,8 +67,8 @@ export async function discoverExecutableCandidates(
     );
 }
 
-export async function listDiscoveredExecutablePaths(workspaceRoot?: string): Promise<string[]> {
-    const candidates = await discoverExecutableCandidates(workspaceRoot);
+export async function listDiscoveredExecutablePaths(): Promise<string[]> {
+    const candidates = await discoverExecutableCandidates();
     return candidates.map((c) => c.absolutePath);
 }
 

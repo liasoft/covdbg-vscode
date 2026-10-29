@@ -6,6 +6,9 @@ export class FakeProcess extends EventEmitter {
     readonly stdout = new EventEmitter();
     readonly stderr = new EventEmitter();
     killed = false;
+    /** What `stubSpawn` started: the executable and the spawn options. */
+    command = "";
+    options: { cwd?: string; env?: NodeJS.ProcessEnv } = {};
 
     constructor(
         readonly args: string[],
@@ -64,4 +67,27 @@ export function answerWhoami(process: FakeProcess, account: SignedInAccount | un
 /** Lets pending callbacks and timers of zero length run. */
 export function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
+}
+
+/** The module itself, not a copy of its exports, so a stubbed spawn reaches every caller. */
+const childProcess = process.getBuiltinModule("child_process");
+
+/**
+ * Makes `child_process.spawn` start fake covdbg processes, for modules that spawn covdbg directly.
+ * `script` runs on the next tick for every process started; `restore` puts the real spawn back.
+ */
+export function stubSpawn(script: (process: FakeProcess) => void): {
+    started: FakeProcess[];
+    restore: () => void;
+} {
+    const real = childProcess.spawn;
+    const covdbg = fakeCovdbg(script);
+    const spawning = (command: string, args: string[], options: { env?: NodeJS.ProcessEnv }) => {
+        const process = covdbg.start(command, args, options.env ?? {}) as FakeProcess;
+        process.command = command;
+        process.options = options;
+        return process;
+    };
+    childProcess.spawn = spawning as unknown as typeof childProcess.spawn;
+    return { started: covdbg.started, restore: () => (childProcess.spawn = real) };
 }

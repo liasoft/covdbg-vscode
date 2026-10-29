@@ -4,20 +4,12 @@ export function deriveCoverageBatchOutputPath(
     configuredOutputPath: string,
     targetExecutablePath: string,
 ): string {
-    return deriveCoverageIntermediateOutputPath(configuredOutputPath, targetExecutablePath);
-}
-
-function deriveCoverageIntermediateOutputPath(
-    configuredOutputPath: string,
-    inputPath: string,
-    suffix = "",
-): string {
     const outputPathLib = getPathLibrary(configuredOutputPath);
-    const targetPathLib = getPathLibrary(inputPath);
+    const targetPathLib = getPathLibrary(targetExecutablePath);
     const parsedOutputPath = outputPathLib.parse(outputPathLib.normalize(configuredOutputPath));
-    const parsedTargetPath = targetPathLib.parse(targetPathLib.normalize(inputPath));
+    const parsedTargetPath = targetPathLib.parse(targetPathLib.normalize(targetExecutablePath));
     const targetBaseName = sanitizeOutputSegment(parsedTargetPath.name) || "coverage";
-    return outputPathLib.join(parsedOutputPath.dir, `${targetBaseName}${suffix}.covdb`);
+    return outputPathLib.join(parsedOutputPath.dir, `${targetBaseName}.covdb`);
 }
 
 export function dedupeNormalizedPaths(paths: string[]): string[] {
