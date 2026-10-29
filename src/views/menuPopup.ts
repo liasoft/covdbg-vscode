@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { RenderMode } from "../types";
 import { CovdbFileSummary } from "../coverage/covdbParser";
+import { buildCoverageSummaryFromFileIndex } from "../coverage/coverageSummary";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,8 +49,8 @@ export async function showMenu(ctx: MenuContext, actions: MenuActions): Promise<
         m === "line" ? "Full Line" : m === "gutter" ? "Gutter" : "Both";
 
     // ── Database section ──
-    const overall = computeOverallStats(ctx.fileIndex);
-    const pct = overall.total > 0 ? (overall.covered / overall.total) * 100 : 0;
+    const { linesCovered, linesTotal } = buildCoverageSummaryFromFileIndex(ctx.fileIndex);
+    const pct = linesTotal > 0 ? (linesCovered / linesTotal) * 100 : 0;
     items.push({
         label: "Coverage Database",
         kind: vscode.QuickPickItemKind.Separator,
@@ -58,7 +59,7 @@ export async function showMenu(ctx: MenuContext, actions: MenuActions): Promise<
     items.push({
         label: `$(database)  ${path.basename(ctx.activeCovdbPath)}`,
         description: `${ctx.fileIndex.size} files — click to switch`,
-        detail: `    ${overall.covered} / ${overall.total} lines — ${pct.toFixed(1)}%`,
+        detail: `    ${linesCovered} / ${linesTotal} lines — ${pct.toFixed(1)}%`,
         action: "switch-database",
     });
 
@@ -229,21 +230,4 @@ export async function showFileBrowser(fileIndex: Map<string, CovdbFileSummary>):
             vscode.window.showWarningMessage(`Cannot open: ${picked.filePath}`);
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function computeOverallStats(fileIndex: Map<string, CovdbFileSummary>): {
-    covered: number;
-    total: number;
-} {
-    let covered = 0,
-        total = 0;
-    for (const s of fileIndex.values()) {
-        covered += s.coveredLines;
-        total += s.totalLines;
-    }
-    return { covered, total };
 }

@@ -118,13 +118,8 @@ export function buildTree(
         }
         return n;
     }
-    const collapsed = collapse(root);
-    // root might have been collapsed into a single node
-    if (collapsed !== root) {
-        root.children = new Map([[collapsed.name, collapsed]]);
-        root.aggCovered = collapsed.aggCovered;
-        root.aggTotal = collapsed.aggTotal;
-    }
+    // The root is never merged into its child: only named folders are.
+    collapse(root);
 
     return root;
 }

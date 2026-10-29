@@ -97,3 +97,26 @@ test("CovdbReloadScheduler matches the active path regardless of case or separat
 
     assert.equal(drained.length, 1, "the same file spelled differently is still the same file");
 });
+
+test("CovdbReloadScheduler ignores an end without a matching begin", () => {
+    const scheduler = new CovdbReloadScheduler();
+
+    assert.equal(scheduler.endExecution(), true);
+    assert.equal(scheduler.hasActiveExecution(), false);
+
+    scheduler.beginExecution();
+    assert.equal(scheduler.endExecution(), true, "one begin still needs only one end");
+});
+
+test("CovdbReloadScheduler drops reloads for a folder that no longer has coverage loaded", () => {
+    const scheduler = new CovdbReloadScheduler();
+
+    scheduler.queueReload("closed", "D:\\repo\\coverage.covdb");
+    scheduler.queueReload("open", "D:\\other\\coverage.covdb");
+
+    assert.deepEqual(
+        scheduler.drainPendingReloads(new Map([["open", "D:\\other\\coverage.covdb"]])),
+        [{ stateKey: "open", covdbPath: "D:\\other\\coverage.covdb" }],
+    );
+    assert.equal(scheduler.hasPendingReloads(), false);
+});

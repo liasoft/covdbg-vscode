@@ -125,3 +125,36 @@ test("no server is offered in an untrusted window or without a folder", () => {
     vscodeStub.workspace.workspaceFolders = undefined;
     assert.deepEqual(provider().instance.provideMcpServerDefinitions(), []);
 });
+
+test("no server is offered or started outside Windows", async () => {
+    const { instance, resolved } = provider();
+    const [server] = instance.provideMcpServerDefinitions();
+
+    Object.defineProperty(process, "platform", { value: "linux" });
+    assert.deepEqual(instance.provideMcpServerDefinitions(), []);
+    assert.equal(await instance.resolveMcpServerDefinition(server), undefined);
+    assert.equal(resolved.length, 0);
+});
+
+test("a definition without a folder, or one the window stopped trusting, is not started", async () => {
+    const { instance, resolved } = provider();
+    const [server] = instance.provideMcpServerDefinitions();
+
+    vscodeStub.workspace.isTrusted = false;
+    assert.equal(await instance.resolveMcpServerDefinition(server), undefined);
+
+    vscodeStub.workspace.isTrusted = true;
+    server.args = ["mcp"];
+    assert.equal(await instance.resolveMcpServerDefinition(server), undefined);
+    assert.equal(resolved.length, 0);
+});
+
+test("a disposed provider tells the editor nothing more", () => {
+    const { instance } = provider();
+    let fired = 0;
+    instance.onDidChangeMcpServerDefinitions(() => fired++);
+
+    instance.dispose();
+    instance.refresh();
+    assert.equal(fired, 0);
+});

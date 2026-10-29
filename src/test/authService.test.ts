@@ -271,3 +271,80 @@ test("signing out asks first and passes on the service's problem", async () => {
     ]);
     assert.deepEqual(signingOut.state, { kind: "signedOut" });
 });
+
+test("a sign-out covdbg refuses is reported and the state is asked again", async () => {
+    vscodeStub.window.warningAnswer = "Sign Out";
+    const covdbg = fakeCovdbg((process) => {
+        if (process.args[0] === "logout") {
+            process.print("The credential store is locked.\n");
+            process.exit(1);
+        } else {
+            answerWhoami(process, { email: "dev@example.com" });
+        }
+    });
+    const auth = new AuthService({
+        resolveRuntime: async () => OK,
+        readSettingsEnv: () => ({}),
+        start: covdbg.start,
+    });
+    try {
+        await auth.signOut();
+    } finally {
+        vscodeStub.window.warningAnswer = undefined;
+    }
+
+    assert.deepEqual(vscodeStub.window.toasts, [
+        "Sign out of covdbg?",
+        "covdbg: The credential store is locked.",
+    ]);
+    assert.deepEqual(auth.state, { kind: "signedIn", email: "dev@example.com" });
+});
+
+test("without a usable covdbg, signing in or out says why and starts nothing", async () => {
+    const { auth, whoamis, logins } = machine({ runtime: { kind: "missing" } });
+    vscodeStub.window.warningAnswer = "Sign Out";
+    try {
+        await auth.signOut();
+    } finally {
+        vscodeStub.window.warningAnswer = undefined;
+    }
+    assert.equal(await auth.signIn(), false);
+
+    const missing = /covdbg: covdbg 1\.4\.0 or newer was not found/;
+    assert.equal(vscodeStub.window.toasts.length, 3);
+    assert.match(vscodeStub.window.toasts[1], missing);
+    assert.match(vscodeStub.window.toasts[2], missing);
+    assert.equal(whoamis().length + logins().length, 0);
+    assert.deepEqual(auth.runtime, { kind: "missing" });
+});
+
+test("signing in clears a notice that asked for it, and keeps any other", async () => {
+    const { state, auth, logins } = machine();
+    auth.applyRunNotices([{ kind: "gated", message: "gated" }]);
+    let signingIn = auth.signIn();
+    state.email = "dev@example.com";
+    (await nextLogin(logins)).exit(0);
+    assert.equal(await signingIn, true);
+    assert.equal(auth.lastRunNotice?.kind, "gated");
+
+    auth.applyRunNotices([
+        { kind: "sessionInvalid", message: "Your sign-in has ended.", action: "signIn" },
+    ]);
+    signingIn = auth.signIn();
+    const login = await nextLogin(() => logins().slice(1));
+    login.exit(0);
+    assert.equal(await signingIn, true);
+    assert.equal(auth.lastRunNotice, undefined);
+    assert.deepEqual(auth.state, { kind: "signedIn", email: "dev@example.com" });
+    assert.deepEqual(auth.runtime, OK);
+});
+
+test("disposing stops a sign-in in progress", async () => {
+    const { auth, logins } = machine();
+    const signingIn = auth.signIn();
+    const login = await nextLogin(logins);
+
+    auth.dispose();
+    assert.equal(await signingIn, false);
+    assert.equal(login.killed, true);
+});

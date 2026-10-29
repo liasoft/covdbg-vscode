@@ -123,12 +123,12 @@ export class CovdbParser {
                     total_lines: number;
                     covered_lines: number;
                 };
-                const pct = row.total_lines > 0 ? (row.covered_lines / row.total_lines) * 100 : 0;
+                // Each row groups at least one line, so total_lines is never 0.
                 files.set(row.file_path, {
                     filePath: row.file_path,
                     totalLines: row.total_lines,
                     coveredLines: row.covered_lines,
-                    coveragePercent: pct,
+                    coveragePercent: (row.covered_lines / row.total_lines) * 100,
                 });
             }
             stmt.free();
