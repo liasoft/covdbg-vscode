@@ -484,7 +484,7 @@
         "@types/js-yaml": "^4.0.9",
         "@types/node": "^24.19.2",
         "@types/sql.js": "^1.4.11",
-        "@types/vscode": "^1.140.0",
+        "@types/vscode": "^1.144.0",
         "@typescript-eslint/eslint-plugin": "^8.72.1",
         "@typescript-eslint/parser": "^8.72.1",
         "@vscode/test-electron": "^3.1.0",
